@@ -48,7 +48,7 @@ def _near_quantile(store, pids, anchor, K, q = 0.1):
 def _prep(store, cohort_pids, used):        # общий пролог ручек
     return set(used or ()), set(store.meta.loc[cohort_pids, "study"])
 
-def _cohort_medoids(store, pids, m):        # m прототипов подмножества когорты: денойзенные якоря (компромисс centroid <-> per-case)
+def _cohort_medoids(store, pids, m):        # m прототипов 
     if m <= 0 or not pids:
         return []
     if len(pids) <= m:
@@ -56,10 +56,25 @@ def _cohort_medoids(store, pids, m):        # m прототипов подмн�
     lab = KMeans(m, n_init = 5, random_state = 0).fit_predict(store.sigs(pids))
     return [_medoid(store, [p for p, l in zip(pids, lab) if l == c]) for c in range(m)]  #type:ignore
 
-def _nearest(store, pids, anchor):          # ближайший кандидат к якорю (pids уже без used)
-    if not pids:
-        return None
-    return pids[int(np.argmin(np.linalg.norm(store.sigs(pids) - anchor, axis = 1)))]
+def _match_fill(store, anchors, cand_label, exclude, used, K):   # round-robin: добираем K контролей, распределяя бюджет по якорям
+    cand = _available(store, cand_label, exclude, used)
+    if not cand or not anchors or K <= 0:
+        return []
+    sig = store.sigs(cand)
+    ranked = [[cand[i] for i in np.argsort(np.linalg.norm(sig - store.sigs([a])[0], axis = 1))] for a in anchors]  # кандидаты на якорь по возрастанию дистанции
+    picks, taken, ptr = [], set(), [0] * len(anchors)
+    while len(picks) < K:
+        progress = False
+        for a in range(len(anchors)):
+            if len(picks) >= K:
+                break
+            while ptr[a] < len(ranked[a]) and ranked[a][ptr[a]] in taken:  
+                ptr[a] += 1
+            if ptr[a] < len(ranked[a]):
+                picks.append(ranked[a][ptr[a]]); taken.add(ranked[a][ptr[a]]); ptr[a] += 1; progress = True
+        if not progress:            # кандидаты исчерпаны 
+            break
+    return picks
 
 def diverse_refs(store, cohort_pids, K_dis, K_nor, q = 0.8, used = None, case = 1, control = 0):
     """Коровы на пляже"""
@@ -78,12 +93,8 @@ def matched_refs(store, cohort_pids, K_case, K_control, used = None, case = 1, c
     cases = coh.index[coh.label == case].tolist()
     controls = coh.index[coh.label == control].tolist()
     refs = []
-    for anc in _cohort_medoids(store, cases, K_control):        # контроли к регионам случаев
-        pick = _nearest(store, _available(store, control, exclude, used | set(refs)), store.sigs([anc])[0])
-        if pick: refs.append(pick)
-    for anc in _cohort_medoids(store, controls, K_case):        # случаи к регионам контролей
-        pick = _nearest(store, _available(store, case, exclude, used | set(refs)), store.sigs([anc])[0])
-        if pick: refs.append(pick)
+    refs += _match_fill(store, _cohort_medoids(store, cases, K_control), control, exclude, used | set(refs), K_control)   # контроли к регионам случаев
+    refs += _match_fill(store, _cohort_medoids(store, controls, K_case), case, exclude, used | set(refs), K_case)         # случаи к регионам контролей
     return refs
     
     

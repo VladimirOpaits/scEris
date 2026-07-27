@@ -1,6 +1,5 @@
-from store import SignatureStore
-from retrieval import diverse_refs, matched_refs, diverse_refs_paired, representatives
-import config
+from sceris import SignatureStore, diverse_refs, matched_refs, config
+from sceris.retrieval import diverse_refs_paired, representatives
 import pytest
 
 
@@ -85,6 +84,17 @@ def test_pig_no_reuse(store, cohort):
     first = matched_refs(store, pids, K_case = 3, K_control = 3)
     second = matched_refs(store, pids, K_case = 3, K_control = 3, used = first)
     assert not (set(first) & set(second))
+
+def test_pig_underfill(store):
+    m = store.meta
+    d = m[m.label == 1].study.value_counts().idxmax()
+    n = m[(m.label == 0) & (m.study != d)].study.value_counts().idxmax()
+    few = m.index[(m.study == d) & (m.label == 1)].tolist()[:3]
+    controls = m.index[(m.study == n) & (m.label == 0)].tolist()
+    refs = matched_refs(store, few + controls, K_case = 0, K_control = 8)
+    assert len(refs) == 8
+    assert set(_labels(store, refs)) == {0}
+    assert len(_studies(store, refs)) > 1
 
 
 def test_cow_paired_leak_free(store, cohort):

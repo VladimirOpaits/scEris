@@ -5,3 +5,5 @@ __pycache__
 *.md
 logo.py
 *.png
+.pytest_cache
+interface.py

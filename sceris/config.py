@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parent.parent   # config теперь внутри sceris/, корень репо на уровень выше
 
 def _load(name=".env"):
     env = {}
