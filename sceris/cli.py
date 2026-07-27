@@ -46,8 +46,8 @@ def _demo(arm, K):
 
     fn = diverse_refs if arm == "cow" else matched_refs
     refs = fn(s, cohort, K, K)
-    title = "🐄  cow on beach  (far, same-diagnosis → invariance)" if arm == "cow" \
-        else "🐷  pig on grass  (near, opposite-diagnosis → matched)"
+    title = "cow on beach  (far, same-diagnosis → invariance)" if arm == "cow" \
+        else "pig on grass  (near, opposite-diagnosis → matched)"
     table = Table(title=f"{title}   —   {len(refs)} references")
     table.add_column("patient", style="cyan", no_wrap=True)
     table.add_column("study", style="green")
