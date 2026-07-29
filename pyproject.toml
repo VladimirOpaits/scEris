@@ -12,6 +12,13 @@ dependencies = [
     "rich",
 ]
 
+[project.optional-dependencies]
+build = [
+    "scanpy",
+    "anndata",
+    "tqdm",
+]
+
 [project.scripts]
 sceris = "sceris.cli:main"
 

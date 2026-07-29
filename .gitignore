@@ -6,4 +6,5 @@ __pycache__
 logo.py
 *.png
 .pytest_cache
-interface.py
+interface.py.sceris.json
+*.npz
