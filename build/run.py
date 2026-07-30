@@ -44,6 +44,10 @@ def main():
     ap.add_argument("--out", default="basis.npz")
     ap.add_argument("--gene-col", default=None)
     ap.add_argument("--by-celltype", default=None)
+    ap.add_argument("--compartments", action="store_true")
+    ap.add_argument("--cl-obo", default=None)
+    ap.add_argument("--celltype-col", default="cell_type")
+    ap.add_argument("--cl-col", default="cell_type_ontology_term_id")
     ap.add_argument("--min-cells", type=int, default=500)
     ap.add_argument("--n-hvg", type=int, default=None)
     ap.add_argument("--n-pca", type=int, default=50)
@@ -53,10 +57,20 @@ def main():
     adata = load_dir(args.dir, args.gene_col)
     print(f"loaded {adata.n_obs} cells x {adata.n_vars} genes", flush=True)
 
-    if args.by_celltype:
+    group_col = args.by_celltype
+    if args.compartments:
+        from compartments import load_graph, build_mapper, CL_URL
+        mapper = build_mapper(load_graph(args.cl_obo or CL_URL))
+        cids = adata.obs[args.cl_col].astype(str).values if args.cl_col in adata.obs else [None] * adata.n_obs
+        cts = adata.obs[args.celltype_col].astype(str).values
+        adata.obs["compartment"] = [mapper(ct, ci) for ct, ci in zip(cts, cids)]
+        group_col = "compartment"
+        print("compartments:", dict(adata.obs["compartment"].value_counts()), flush=True)
+
+    if group_col:
         os.makedirs(args.out, exist_ok=True)
-        for ct in sorted(adata.obs[args.by_celltype].astype(str).unique()):
-            sub = adata[adata.obs[args.by_celltype].astype(str) == ct].copy()
+        for ct in sorted(adata.obs[group_col].astype(str).unique()):
+            sub = adata[adata.obs[group_col].astype(str) == ct].copy()
             if sub.n_obs < args.min_cells:
                 print(f"skip {ct}: {sub.n_obs} cells", flush=True)
                 continue
